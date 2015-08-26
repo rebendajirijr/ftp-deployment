@@ -103,6 +103,8 @@ class CliRunner
 			'before' => '',
 			'after' => '',
 			'preprocess' => TRUE,
+			'publickey' => '',
+			'privatekey' => '',
 		];
 
 		if (empty($config['remote']) || !parse_url($config['remote'])) {
@@ -110,7 +112,7 @@ class CliRunner
 		}
 
 		$server = parse_url($config['remote'], PHP_URL_SCHEME) === 'sftp'
-			? new SshServer($config['remote'])
+			? new SshServer($config['remote'], $config['publickey'], $config['privatekey'])
 			: new FtpServer($config['remote'], (bool) $config['passivemode']);
 
 		if (!preg_match('#/|\\\\|[a-z]:#iA', $config['local'])) {

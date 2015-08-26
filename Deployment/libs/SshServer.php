@@ -24,13 +24,19 @@ class SshServer implements Server
 
 	/** @var string */
 	private $url;
+	
+	/** @var string|NULL */
+	private $publicKey;
+	
+	/** @var string|NULL */
+	private $privateKey;
 
 
 	/**
 	 * @param  string  URL ftp://...
 	 * @param  bool
 	 */
-	public function __construct($url)
+	public function __construct($url, $publicKey = NULL, $privateKey = NULL)
 	{
 		if (!extension_loaded('ssh2')) {
 			throw new \Exception('PHP extension SSH2 is not loaded.');
@@ -40,6 +46,8 @@ class SshServer implements Server
 			throw new \InvalidArgumentException("Invalid URL or missing username: $url");
 		}
 		$this->url = $url;
+		$this->publicKey = $publicKey;
+		$this->privateKey = $privateKey;
 	}
 
 
@@ -54,6 +62,8 @@ class SshServer implements Server
 			$this->connection = ssh2_connect($parts['host'], empty($parts['port']) ? 22 : (int) $parts['port']);
 			if (isset($parts['pass'])) {
 				ssh2_auth_password($this->connection, $parts['user'], $parts['pass']);
+			} elseif ($this->publicKey != '') { // intentionally !=
+				ssh2_auth_pubkey_file($this->connection, $parts['user'], $this->publicKey, $this->privateKey);
 			} else {
 				ssh2_auth_agent($this->connection, $parts['user']);
 			}
