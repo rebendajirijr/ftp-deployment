@@ -64,8 +64,9 @@ class SshServer implements Server
 				ssh2_auth_password($this->connection, $parts['user'], $parts['pass']);
 			} elseif ($this->publicKey != '') { // intentionally !=
 				ssh2_auth_pubkey_file($this->connection, $parts['user'], $this->publicKey, $this->privateKey);
+				ssh2_auth_password($this->connection, urldecode($parts['user']), urldecode($parts['pass']));
 			} else {
-				ssh2_auth_agent($this->connection, $parts['user']);
+				ssh2_auth_agent($this->connection, urldecode($parts['user']));
 			}
 			$this->sftp = ssh2_sftp($this->connection);
 		});
