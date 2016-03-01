@@ -3,7 +3,7 @@
 /**
  * FTP Deployment
  *
- * Copyright (c) 2009 David Grudl (http://davidgrudl.com)
+ * Copyright (c) 2009 David Grudl (https://davidgrudl.com)
  */
 
 namespace Deployment;
@@ -16,6 +16,22 @@ namespace Deployment;
  */
 class CliRunner
 {
+	/** @var array */
+	public $defaults = [
+		'local' => '',
+		'passivemode' => TRUE,
+		'ignore' => '',
+		'allowdelete' => TRUE,
+		'purge' => '',
+		'before' => '',
+		'afterupload' => '',
+		'after' => '',
+		'preprocess' => TRUE,
+	];
+
+	/** @var string[] */
+	public $ignoreMasks = ['*.bak', '.svn' , '.git*', 'Thumbs.db', '.DS_Store', '.idea'];
+
 	/** @var Logger */
 	private $logger;
 
@@ -37,17 +53,17 @@ class CliRunner
 			return 1;
 		}
 
-		$config += [
+		$options = array_change_key_case($config, CASE_LOWER) + [
 			'log' => preg_replace('#\.\w+$#', '.log', $this->configFile),
 			'tempdir' => sys_get_temp_dir() . '/deployment',
 			'colors' => (PHP_SAPI === 'cli' && ((function_exists('posix_isatty') && posix_isatty(STDOUT))
 				|| getenv('ConEmuANSI') === 'ON' || getenv('ANSICON') !== FALSE)),
 		];
 
-		$this->logger = new Logger($config['log']);
-		$this->logger->useColors = (bool) $config['colors'];
+		$this->logger = new Logger($options['log']);
+		$this->logger->useColors = (bool) $options['colors'];
 
-		if (!is_dir($tempDir = $config['tempdir'])) {
+		if (!is_dir($tempDir = $options['tempdir'])) {
 			$this->logger->log("Creating temporary directory $tempDir");
 			mkdir($tempDir, 0777, TRUE);
 		}
@@ -56,7 +72,7 @@ class CliRunner
 		$this->logger->log("Started at " . date('[Y/m/d H:i]'));
 		$this->logger->log("Config file is $this->configFile");
 
-		if (isset($config['remote']) && is_string($config['remote'])) {
+		if (isset($options['remote']) && is_string($options['remote'])) {
 			$config = ['' => $config];
 		}
 
@@ -72,13 +88,15 @@ class CliRunner
 
 			if ($this->mode === 'generate') {
 				$this->logger->log('Scanning files');
-				$localFiles = $deployment->collectFiles();
-				$this->logger->log("Saved " . $deployment->writeDeploymentFile($localFiles));
+				$localPaths = $deployment->collectPaths();
+				$this->logger->log("Saved " . $deployment->writeDeploymentFile($localPaths));
 				continue;
 			}
 
 			if ($deployment->testMode) {
-				$this->logger->log('Test mode');
+				$this->logger->log('Test mode', 'lime');
+			} else {
+				$this->logger->log('Live mode', 'aqua');
 			}
 			if (!$deployment->allowDelete) {
 				$this->logger->log('Deleting disabled');
@@ -106,6 +124,7 @@ class CliRunner
 			'publickey' => '',
 			'privatekey' => '',
 		];
+		$config = array_change_key_case($config, CASE_LOWER) + $this->defaults;
 
 		if (empty($config['remote']) || !parse_url($config['remote'])) {
 			throw new \Exception("Missing or invalid 'remote' URL in config.");
@@ -134,14 +153,12 @@ class CliRunner
 			$deployment->addFilter('css', [$preprocessor, 'compressCss'], TRUE);
 		}
 
-		$deployment->ignoreMasks = array_merge(
-			['*.bak', '.svn' , '.git*', 'Thumbs.db', '.DS_Store'],
-			self::toArray($config['ignore'])
-		);
+		$deployment->ignoreMasks = array_merge($this->ignoreMasks, self::toArray($config['ignore']));
 		$deployment->deploymentFile = empty($config['deploymentfile']) ? $deployment->deploymentFile : $config['deploymentfile'];
 		$deployment->allowDelete = $config['allowdelete'];
 		$deployment->toPurge = self::toArray($config['purge'], TRUE);
 		$deployment->runBefore = self::toArray($config['before'], TRUE);
+		$deployment->runAfterUpload = self::toArray($config['afterupload'], TRUE);
 		$deployment->runAfter = self::toArray($config['after'], TRUE);
 		$deployment->testMode = !empty($config['test']) || $this->mode === 'test';
 
@@ -174,7 +191,7 @@ class CliRunner
 	{
 		$cmd = new CommandLine(<<<XX
 
-FTP deployment v2.2
+FTP deployment v2.4
 -------------------
 Usage:
 	deploy.php <config_file> [-t | --test]

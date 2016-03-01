@@ -3,7 +3,7 @@
 /**
  * FTP Deployment
  *
- * Copyright (c) 2009 David Grudl (http://davidgrudl.com)
+ * Copyright (c) 2009 David Grudl (https://davidgrudl.com)
  */
 
 namespace Deployment;
@@ -121,7 +121,7 @@ class FtpServer implements Server
 		try {
 			$this->ftp('delete', $file);
 		} catch (FtpException $e) {
-			if ($this->ftp('nlist', $file)) {
+			if (in_array($file, (array) $this->ftp('nlist', $file . '*'))) {
 				throw $e;
 			}
 		}
@@ -193,7 +193,7 @@ class FtpServer implements Server
 		try {
 			$this->ftp('rmDir', $dir);
 		} catch (FtpException $e) {
-			if ($this->ftp('nlist', $dir)) {
+			if (in_array($dir, (array) $this->ftp('nlist', $dir . '*'))) {
 				throw $e;
 			}
 		}
@@ -205,31 +205,31 @@ class FtpServer implements Server
 	 * @param  string
 	 * @return void
 	 */
-	public function purge($path, callable $progress = NULL)
+	public function purge($dir, callable $progress = NULL)
 	{
 		$dirs = [];
-		foreach ((array) $this->ftp('nlist', $path) as $file) {
-			if ($file == NULL || $file === $path || preg_match('#(^|/)\\.+$#', $file)) { // intentionally ==
+		foreach ((array) $this->ftp('nlist', $dir) as $entry) {
+			if ($entry == NULL || $entry === $dir || preg_match('#(^|/)\\.+$#', $entry)) { // intentionally ==
 				continue;
-			} elseif (strpos($file, '/') === FALSE) {
-				$file = "$path/$file";
+			} elseif (strpos($entry, '/') === FALSE) {
+				$entry = "$dir/$entry";
 			}
 
-			if ($this->isDir($file)) {
-				$dirs[] = $tmp = "$path/.delete" . uniqid() . count($dirs);
-				$this->ftp('rename', $file, $tmp);
+			if ($this->isDir($entry)) {
+				$dirs[] = $tmp = "$dir/.delete" . uniqid() . count($dirs);
+				$this->ftp('rename', $entry, $tmp);
 			} else {
-				$this->ftp('delete', $file);
+				$this->ftp('delete', $entry);
 			}
 
 			if ($progress) {
-				$progress($file);
+				$progress($entry);
 			}
 		}
 
-		foreach ($dirs as $dir) {
-			$this->purge($dir, $progress);
-			$this->ftp('rmDir', $dir);
+		foreach ($dirs as $subdir) {
+			$this->purge($subdir, $progress);
+			$this->ftp('rmDir', $subdir);
 		}
 	}
 
@@ -250,7 +250,21 @@ class FtpServer implements Server
 	 */
 	public function execute($command)
 	{
-		return $this->ftp('exec', $command);
+		if (preg_match('#^(mkdir|rmdir|unlink|mv|chmod)\s+(\S+)(?:\s+(\S+))?$#', $command, $m)) {
+			if ($m[1] === 'mkdir') {
+				$this->createDir($m[2]);
+			} elseif ($m[1] === 'rmdir') {
+				$this->removeDir($m[2]);
+			} elseif ($m[1] === 'unlink') {
+				$this->removeFile($m[2]);
+			} elseif ($m[1] === 'mv') {
+				$this->renameFile($m[2], $m[3]);
+			} elseif ($m[1] === 'chmod') {
+				$this->ftp('chmod', octdec($m[2]), $m[3]);
+			}
+		} else {
+			return $this->ftp('exec', $command);
+		}
 	}
 
 

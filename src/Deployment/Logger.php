@@ -3,7 +3,7 @@
 /**
  * FTP Deployment
  *
- * Copyright (c) 2009 David Grudl (http://davidgrudl.com)
+ * Copyright (c) 2009 David Grudl (https://davidgrudl.com)
  */
 
 namespace Deployment;
@@ -43,9 +43,9 @@ class Logger
 	];
 
 
-	public function __construct($fileName)
+	public function __construct($file)
 	{
-		$this->file = fopen($fileName, 'w');
+		$this->file = fopen($file, 'w');
 	}
 
 

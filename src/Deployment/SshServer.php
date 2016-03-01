@@ -3,7 +3,7 @@
 /**
  * FTP Deployment
  *
- * Copyright (c) 2009 David Grudl (http://davidgrudl.com)
+ * Copyright (c) 2009 David Grudl (https://davidgrudl.com)
  */
 
 namespace Deployment;
@@ -64,6 +64,7 @@ class SshServer implements Server
 				ssh2_auth_password($this->connection, $parts['user'], $parts['pass']);
 			} elseif ($this->publicKey != '') { // intentionally !=
 				ssh2_auth_pubkey_file($this->connection, $parts['user'], $this->publicKey, $this->privateKey);
+//				ssh2_auth_password($this->connection, urldecode($parts['user']), urldecode($parts['pass']));
 			} else {
 				ssh2_auth_agent($this->connection, urldecode($parts['user']));
 			}
@@ -165,25 +166,25 @@ class SshServer implements Server
 	 */
 	public function purge($dir, callable $progress = NULL)
 	{
-		$dirs = $files = [];
+		$dirs = $entries = [];
 
 		$iterator = dir($path = "ssh2.sftp://$this->sftp$dir");
-		while (FALSE !== ($file = $iterator->read())) {
-			if ($file !== '.' && $file !== '..') {
-				$files[] = $file;
+		while (FALSE !== ($entry = $iterator->read())) {
+			if ($entry !== '.' && $entry !== '..') {
+				$entries[] = $entry;
 			}
 		}
 
-		foreach ($files as $file) {
-			if (is_dir("$path/$file")) {
+		foreach ($entries as $entry) {
+			if (is_dir("$path/$entry")) {
 				$dirs[] = $tmp = '.delete' . uniqid() . count($dirs);
-				$this->protect('rename', ["$path/$file", "$path/$tmp"]);
+				$this->protect('rename', ["$path/$entry", "$path/$tmp"]);
 			} else {
-				$this->protect('unlink', ["$path/$file"]);
+				$this->protect('unlink', ["$path/$entry"]);
 			}
 
 			if ($progress) {
-				$progress($file);
+				$progress($entry);
 			}
 		}
 
