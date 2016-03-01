@@ -24,10 +24,10 @@ class SshServer implements Server
 
 	/** @var string */
 	private $url;
-	
+
 	/** @var string|NULL */
 	private $publicKey;
-	
+
 	/** @var string|NULL */
 	private $privateKey;
 
